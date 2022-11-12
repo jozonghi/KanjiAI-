@@ -13,7 +13,7 @@ import shutil
 import torch.nn as nn
 from torch.nn import Linear, ReLU, CrossEntropyLoss, Sequential, Conv2d, MaxPool2d, Module, Softmax, BatchNorm2d, Dropout
 import torch
-import torch.nn.functional as func
+import torch.nn.functional as F
 import time
 
 
@@ -42,32 +42,50 @@ def check_path(kanjiname):
 
 
 class CNN(nn.Module):
-    def __init__(self):
-        super(CNN, self).__init__()
-        self.conv1 = nn.Conv2d(1, 16, 10)
-        self.conv2 = nn.Conv2d(16, 48, 8)
-        self.conv3 = nn.Conv2d(48, 64, 5)
-        self.conv4 = nn.Conv2d(64, 256, 2)
+    # def __init__(self):
+        # super(CNN,self).__init__()
+        # self.conv1 = nn.Conv2d(1, 16, 10)
+        # self.conv2 = nn.Conv2d(16, 48, 8)
+        # self.conv3 = nn.Conv2d(48, 64, 5)
+        # self.conv4 = nn.Conv2d(64, 256, 2)
 
-        self.fc1 = nn.Linear(4096, 3000)
-        self.fc2 = nn.Linear(3000, 2337)
+        # self.fc1 = nn.Linear(4096, 3000)
+        # self.fc2 = nn.Linear(3000, 2337)
+
+    # def forward(self, x):
+        # x = self.conv1(torch.nn.functional.max_pool2d(x, 2))
+        # x = torch.nn.functional.relu(self.conv2(x))
+        # #x = torch.nn.functional.relu(self.conv3(x))
+        # x = torch.nn.functional.relu(self.conv3(x))
+        # x = torch.nn.functional.relu(self.conv4(x))
+        # #x = self.dropout1(x)
+        # x = torch.flatten(x, 1)
+        
+        # x = torch.nn.functional.relu(self.fc1(x))
+        # #x = self.dropout2(x)
+        # x = self.fc2(x)
+        
+        # #x = torch.nn.functional.relu(self.fc2(x))
+        # x = torch.nn.functional.log_softmax(x, dim=1)
+
+        # return x
+        
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1 = nn.Linear(2304, 8000)
+        self.fc2 = nn.Linear(8000, 5000)
+        self.fc3 = nn.Linear(5000, 2337)
 
     def forward(self, x):
-        x = self.conv1(torch.nn.functional.max_pool2d(x, 2))
-        x = torch.nn.functional.relu(self.conv2(x))
-        #x = torch.nn.functional.relu(self.conv3(x))
-        x = torch.nn.functional.relu(self.conv3(x))
-        x = torch.nn.functional.relu(self.conv4(x))
-        #x = self.dropout1(x)
-        x = torch.flatten(x, 1)
-        
-        x = torch.nn.functional.relu(self.fc1(x))
-        #x = self.dropout2(x)
-        x = self.fc2(x)
-        
-        #x = torch.nn.functional.relu(self.fc2(x))
-        x = torch.nn.functional.log_softmax(x, dim=1)
-
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = torch.flatten(x, 1) # flatten all dimensions except batch
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
         return x
 
 def makeBorder(redraw, x,y, kanjilist, i, fnt ):
@@ -107,13 +125,13 @@ def makeBorder(redraw, x,y, kanjilist, i, fnt ):
     
 
 if __name__ == "__main__":
-
+    __spec__ = None
     # Read the Kanji file with
     kanji = open("joyo.txt", "r", encoding="utf8")
     kanjilist = kanji.readline()
     kanji.close()
 
-    createDataset = True
+    createDataset = False
     randomGray = False
     makeTest = False
     makeTrain = False
@@ -186,9 +204,9 @@ if __name__ == "__main__":
             transforms.Grayscale(),
             transforms.ToTensor()
         ])
-
-        train_data = torchvision.datasets.ImageFolder("E:\\MiKanji\\Revised\\", transform=transform_settings)
-        train_loader = torch.utils.data.DataLoader(train_data, batch_size=100, shuffle=True, num_workers=4)
+        batch_size = 10
+        train_data = torchvision.datasets.ImageFolder("E:\\MiKanji\\GPUWrite\\Classes\\", transform=transform_settings)
+        train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4)
         #test_data = torchvision.datasets.ImageFolder("E:\\MiKanji\\Images\\Test", transform=transform_settings)
         #test_loader = torch.utils.data.DataLoader(test_data, batch_size=20, shuffle=True, num_workers=4)
 
@@ -197,24 +215,31 @@ if __name__ == "__main__":
         print(len(train_data))
 
         network = CNN()
-        network.load_state_dict(torch.load("Model\\model.cnn"))
+        #network.load_state_dict(torch.load("Model\\model.cnn"))
         network.to(device)
-        optimizer = torch.optim.Adam(network.parameters(), lr=0.001)
+        # optimizer = torch.optim.Adam(network.parameters(), lr=0.001)
         J = torch.nn.CrossEntropyLoss()
-        network.train()
-        losses_001 = np.array([])
-        losses_003 = np.array([])
-        losses_01 = np.array([])
-        losses_03 = np.array([])
-        losses_1 = np.array([])
-        learning_rates = [0.0001, 0.03, 0.01, 0.003, 0.001]
-        losses = [losses_1, losses_03, losses_01, losses_003, losses_001]
+        # network.train()
+        # losses_001 = np.array([])
+        # losses_003 = np.array([])
+        # losses_01 = np.array([])
+        # losses_03 = np.array([])
+        # losses_1 = np.array([])
+        # learning_rates = [0.0001, 0.03, 0.01, 0.003, 0.001]
+        # losses = [losses_1, losses_03, losses_01, losses_003, losses_001]
         
-        for epoch in range(0,15):
+        accuracy = 0
+        for epoch in range(0,150):
+            correct = 0
+            batch = 0
             optimizer = torch.optim.Adam(network.parameters(), lr=0.0001)
-            for i, data in enumerate(train_loader):
-                inputs, labels = data[0].to(device), data[1].to(device)
+            for i, data in enumerate(train_loader,0):
+                #inputs, labels = data[0].to(device), data[1].to(device)
                 #inputs, labels = torch.autograd.Variable(inputs).to(device), torch.autograd.Variable(labels).to(device)
+                
+                inputs, labels = data
+                inputs = inputs.to(device)
+                labels = labels.to(device)
                 
                 optimizer.zero_grad()
 
@@ -223,17 +248,22 @@ if __name__ == "__main__":
                 loss = J(outputs, labels)
                 loss.backward()
                 optimizer.step()
-                if (i % 1000 == 0):
-                    losses[epoch] = np.append(losses[epoch], loss.cpu().detach().numpy())
-                    #np.savetxt(str(learning_rates[epoch])+'.txt', losses[epoch])
-                    #print(losses[epoch])
-                print("Epoch: ", epoch, "Loss: ", loss.cpu().detach().numpy())
+                _, preds = torch.max(outputs.data,1)
+                correct += (preds == labels).float().sum()
+                # if (i % 1000 == 0):
+                    # losses[epoch] = np.append(losses[epoch], loss.cpu().detach().numpy())
+                    # #np.savetxt(str(learning_rates[epoch])+'.txt', losses[epoch])
+                    # #print(losses[epoch])
+                print("Epoch: ", epoch, "Batch: ", batch, "/",len(train_data)//batch_size,"Loss: ", loss.cpu().detach().numpy(), "Accuracy: ",accuracy)
+                batch +=1
+            accuracy = correct/len(train_data)
+            print("Epoch: ", epoch, "Loss: ", loss.cpu().detach().numpy(), "Accuracy: ",accuracy)
 
                 
             torch.save(network.state_dict(), "Model\\model.cnn")
     
-        for epoch in range(0,5):
-            np.savetxt(str(learning_rates[epoch])+'.txt', losses[epoch])
+        # for epoch in range(0,5):
+            # np.savetxt(str(learning_rates[epoch])+'.txt', losses[epoch])
         
 
         print("Training complete")
