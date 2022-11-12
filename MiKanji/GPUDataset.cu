@@ -170,6 +170,35 @@ __global__ void outlineKernel(unsigned char* Pd, unsigned char* Md, int num_imag
 
 }
 
+/* Add some blurring to image
+* Pd: output array
+* Md: base image array to use as reference
+* num_images: number of images per kanji
+* size: size (NxN) of sub image
+* x_offset, y_offset: offset of base image array from its original position
+*/
+__global__ void blurKernel(unsigned char* Pd, int num_images, int size) {
+
+	int tx = blockIdx.x * blockDim.x + threadIdx.x;
+	int ty = blockIdx.y * blockDim.y + threadIdx.y;
+
+
+	//boundary checking
+	if (ty > 0 && tx > 0 && ty < size && tx < num_images*size) {
+		//left right
+		int sum = Pd[ty * size * num_images + tx];
+		sum = sum + Pd[ty * size * num_images + tx - 1] + Pd[ty * size * num_images + tx + 1];
+		//above below
+		sum = sum + Pd[(ty + 1) * size * num_images + tx] + Pd[(ty - 1) * size * num_images + tx];
+		//diags
+		sum = sum + Pd[(ty + 1) * size * num_images + tx - 1] + Pd[(ty +1) * size * num_images + tx + 1];
+		sum = sum + Pd[(ty - 1) * size * num_images + tx - 1] + Pd[(ty - 1) * size * num_images + tx + 1];
+
+		Pd[ty * size * num_images + tx] = static_cast<char>(sum / 9);
+	}
+
+}
+
 /* Draw white center of Kanji (assumed after outline is done)
 * Pd: output array
 * Md: base image array to use as reference
@@ -305,6 +334,15 @@ bool MakeDataset(int num_images, int size, unsigned char* img, unsigned char* ou
 
 	//draw white center
 	centerKernel << <dimGrid, dimBlock >> > (Pd, Md, num_images, size, x_offset_d, y_offset_d);
+	if (!checkForError(cudaThreadSynchronize()))return false;
+
+	//blur image
+	blurKernel << <dimGrid, dimBlock >> > (Pd, num_images, size);
+	if (!checkForError(cudaThreadSynchronize()))return false;
+
+
+	//blur image again
+	blurKernel << <dimGrid, dimBlock >> > (Pd, num_images, size);
 	if (!checkForError(cudaThreadSynchronize()))return false;
 
 	//copy resulting modified mega image array into host memory

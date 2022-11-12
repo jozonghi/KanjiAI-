@@ -44,7 +44,7 @@ int main() {
 	string fname;
 
 	int size = 64;
-	int num_images = 16;
+	int num_images = 300;
 	unsigned char* output = new unsigned char[num_images * size * size];
 	
 	//Read Kanji input file
